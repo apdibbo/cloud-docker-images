@@ -254,6 +254,33 @@ def on_message(message: rabbitpy.Message) -> None:
     message.ack()
 
 
+def generate_login_str(config: ConsumerConfig) -> str:
+    """
+    Generates the login string for the rabbit connection.
+    """
+    if not config.rabbit_hosts:
+        raise ValueError("No rabbit hosts provided")
+
+    if not isinstance(config.rabbit_hosts, str):
+        raise ValueError("Rabbit hosts must be a comma separated string of hosts")
+
+    debug_str = "amqp://"
+    connect_str = "amqp://"
+
+    for host in config.rabbit_hosts.split(","):
+        host = host.strip()
+        connect_str += f"{config.rabbit_username}:{config.rabbit_password}@{host}:{config.rabbit_port},"
+        debug_str += f"{config.rabbit_username}:<password>@{host}:{config.rabbit_port},"
+
+    # Trim the trailing comma
+    connect_str = connect_str[:-1]
+    debug_str = debug_str[:-1]
+
+    logger.debug("Connecting to rabbit with: %s", debug_str)
+
+    return connect_str
+
+
 def initiate_consumer() -> None:
     """
     Initiates the message consumer and starts consuming messages in a loop.
@@ -263,18 +290,10 @@ def initiate_consumer() -> None:
     # Ensure we have valid creds before trying to contact rabbit
     verify_kerberos_ticket()
 
-    config = ConsumerConfig()
-
-    host = config.rabbit_host
-    port = config.rabbit_port
-    login_user = config.rabbit_username
-    login_pass = config.rabbit_password
-    logger.debug(
-        "Connecting to rabbit with: amqp://%s:<password>@%s:%s/", login_user, host, port
-    )
     exchanges = ["nova"]
 
-    login_str = f"amqp://{login_user}:{login_pass}@{host}:{port}/"
+    config = ConsumerConfig()
+    login_str = generate_login_str(config)
     with rabbitpy.Connection(login_str) as conn:
         with conn.channel() as channel:
             logger.debug("Connected to RabbitMQ")

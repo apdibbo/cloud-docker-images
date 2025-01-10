@@ -21,7 +21,7 @@ OPENSTACK_FIELDS = [
 ]
 
 RABBIT_FIELDS = [
-    ("rabbit_host", "RABBIT_HOST"),
+    ("rabbit_hosts", "RABBIT_HOST"),
     ("rabbit_port", "RABBIT_PORT"),
     ("rabbit_username", "RABBIT_USERNAME"),
     ("rabbit_password", "RABBIT_PASSWORD"),

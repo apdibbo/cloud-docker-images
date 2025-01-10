@@ -1,1 +1,9 @@
 .idea/
+__pycache__/
+openstack-rabbit-consumer/rabbit_consumer/__pycache__/
+openstack-rabbit-consumer/tests/__pycache__/
+venv/
+.vscode/
+
+.coverage
+coverage.xml

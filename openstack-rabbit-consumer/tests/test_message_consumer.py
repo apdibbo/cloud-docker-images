@@ -21,6 +21,7 @@ from rabbit_consumer.message_consumer import (
     is_aq_managed_image,
     get_aq_build_metadata,
     delete_machine,
+    generate_login_str,
 )
 from rabbit_consumer.vm_data import VmData
 
@@ -101,34 +102,82 @@ def test_on_message_accepts_event_types(message_event_type, consume, event_type)
     message.ack.assert_called_once()
 
 
-# pylint: disable=too-few-public-methods
-class MockedConfig(ConsumerConfig):
+@pytest.fixture(name="mocked_config")
+def mocked_config_fixture() -> ConsumerConfig:
     """
     Provides a mocked input config for the consumer
     """
+    config = ConsumerConfig()
 
-    rabbit_host = "rabbit_host"
-    rabbit_port = 1234
-    rabbit_username = "rabbit_username"
-    rabbit_password = "rabbit_password"
+    # Note: the mismatched spaces are intentional
+    config.rabbit_hosts = "rabbit_host1, rabbit_host2,rabbit_host3"
+    config.rabbit_port = 1234
+    config.rabbit_username = "rabbit_username"
+    config.rabbit_password = "rabbit_password"
+    return config
+
+
+def test_generate_login_str(mocked_config):
+    """
+    Test that the function generates the correct login string
+    """
+    expected = (
+        "amqp://"
+        "rabbit_username:rabbit_password@rabbit_host1:1234,"
+        "rabbit_username:rabbit_password@rabbit_host2:1234,"
+        "rabbit_username:rabbit_password@rabbit_host3:1234"
+    )
+
+    assert generate_login_str(mocked_config) == expected
+
+
+def test_generate_login_str_no_hosts(mocked_config):
+    """
+    Test that the function raises if nothing is passed
+    """
+    mocked_config.rabbit_hosts = ""
+    with pytest.raises(ValueError):
+        assert generate_login_str(mocked_config)
+
+
+def test_generate_login_non_str(mocked_config):
+    """
+    Test that the function raises if the input is not a string
+    """
+    mocked_config.rabbit_hosts = 1234
+    with pytest.raises(ValueError):
+        assert generate_login_str(mocked_config)
+
+
+@patch("rabbit_consumer.message_consumer.logger")
+def test_password_does_not_get_logged(logging, mocked_config):
+    """
+    Test that the password does not get logged
+    """
+    returned_str = generate_login_str(mocked_config)
+    logging.debug.assert_called_once()
+    logging_arg = logging.debug.call_args[0][1]
+    assert mocked_config.rabbit_password in returned_str
+
+    # Check that the password is not in the log message
+    assert mocked_config.rabbit_username in logging_arg
+    assert mocked_config.rabbit_password not in logging_arg
 
 
 @patch("rabbit_consumer.message_consumer.verify_kerberos_ticket")
+@patch("rabbit_consumer.message_consumer.generate_login_str")
 @patch("rabbit_consumer.message_consumer.rabbitpy")
-def test_initiate_consumer_channel_setup(rabbitpy, _):
+def test_initiate_consumer_channel_setup(rabbitpy, gen_login, _, mocked_config):
     """
     Test that the function sets up the channel and queue correctly
     """
-    mocked_config = MockedConfig()
-
     with patch("rabbit_consumer.message_consumer.ConsumerConfig") as config:
         config.return_value = mocked_config
         initiate_consumer()
 
-    rabbitpy.Connection.assert_called_once_with(
-        f"amqp://{mocked_config.rabbit_username}:{mocked_config.rabbit_password}@{mocked_config.rabbit_host}:{mocked_config.rabbit_port}/"
-    )
+        gen_login.assert_called_once_with(mocked_config)
 
+    rabbitpy.Connection.assert_called_once_with(gen_login.return_value)
     connection = rabbitpy.Connection.return_value.__enter__.return_value
     connection.channel.assert_called_once()
     channel = connection.channel.return_value.__enter__.return_value
@@ -149,7 +198,8 @@ def test_initiate_consumer_actual_consumption(rabbitpy, message_mock, _):
     # We need our mocked queue to act like a generator
     rabbitpy.Queue.return_value.__iter__.return_value = queue_messages
 
-    initiate_consumer()
+    with patch("rabbit_consumer.message_consumer.generate_login_str"):
+        initiate_consumer()
 
     message_mock.assert_has_calls([call(message) for message in queue_messages])
 

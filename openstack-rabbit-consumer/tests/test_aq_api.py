@@ -141,6 +141,26 @@ def test_aq_make_calls(config, setup, openstack_address_list):
     setup.assert_called_once_with(expected_url, "post", mock.ANY)
 
 
+@patch("rabbit_consumer.aq_api.setup_requests")
+@patch("rabbit_consumer.aq_api.ConsumerConfig")
+def test_aq_make_aquilon_error(config, setup, openstack_address_list):
+    """
+    Test that aq_make doesn't fail when aquilon error raised
+    """
+    domain = "domain"
+    config.return_value.aq_url = domain
+    setup.side_effect = AquilonError()
+
+    # pylint:disable=bare-except
+    try:
+        aq_make(openstack_address_list)
+    except:
+        assert False, "exception was raised when it should have been ignored"
+
+    expected_url = f"{domain}/host/{openstack_address_list[0].hostname}/command/make"
+    setup.assert_called_once_with(expected_url, "post", mock.ANY)
+
+
 @pytest.mark.parametrize("hostname", ["  ", "", None])
 @patch("rabbit_consumer.aq_api.setup_requests")
 @patch("rabbit_consumer.aq_api.ConsumerConfig")

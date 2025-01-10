@@ -102,7 +102,12 @@ def aq_make(addresses: List[OpenstackAddress]) -> None:
         raise ValueError("Hostname cannot be empty")
 
     url = ConsumerConfig().aq_url + f"/host/{hostname}/command/make"
-    setup_requests(url, "post", "Make Template")
+    try:
+        setup_requests(url, "post", "Make Template")
+    # suppressing 400 error that occurs - the VM gets created fine
+    # TODO: find out why this occurs
+    except AquilonError:
+        logger.debug("make request failed, continuing")
 
 
 def aq_manage(addresses: List[OpenstackAddress], image_meta: AqMetadata) -> None:

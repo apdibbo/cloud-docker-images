@@ -62,6 +62,33 @@ def test_aq_metadata_override_all(image_metadata):
     assert returned.aq_os_version == "osversion_mock"
 
 
+def test_aq_metadata_override_with_none_values(image_metadata):
+    """
+    Tests that any invalid values, such as none, null or
+    whitespace are all ignored when overriding from the image
+    layer
+    """
+    returned = AqMetadata.from_dict(image_metadata)
+    returned.override_from_vm_meta(
+        {
+            "AQ_ARCHETYPE": "archetype_mock_override",
+            "AQ_DOMAIN": "None",
+            "AQ_PERSONALITY": "null",
+            "AQ_OS": "none",
+            "AQ_OSVERSION": " ",  # Space intentionally left
+            "AQ_SANDBOX": None,
+        }
+    )
+
+    assert returned.aq_archetype == "archetype_mock_override"
+
+    reference_metadata = AqMetadata.from_dict(image_metadata)
+    assert returned.aq_domain == reference_metadata.aq_domain
+    assert returned.aq_os == reference_metadata.aq_os
+    assert returned.aq_os_version == reference_metadata.aq_os_version
+    assert returned.aq_sandbox == reference_metadata.aq_sandbox
+
+
 def test_aq_metadata_sandbox(image_metadata):
     """
     Tests the sandbox value in an AQ metadata object

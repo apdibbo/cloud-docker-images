@@ -49,7 +49,7 @@ class _RabbitFields:
     environment variables.
     """
 
-    rabbit_host: str = field(default_factory=partial(os.getenv, "RABBIT_HOST", None))
+    rabbit_hosts: str = field(default_factory=partial(os.getenv, "RABBIT_HOST", None))
     rabbit_port: str = field(default_factory=partial(os.getenv, "RABBIT_PORT", None))
     rabbit_username: str = field(
         default_factory=partial(os.getenv, "RABBIT_USERNAME", None)
