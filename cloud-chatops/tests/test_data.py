@@ -1,7 +1,7 @@
 """Tests for data.py"""
 
 from datetime import datetime, timedelta
-from data import PR, User
+from helper.data import PR, User
 
 # pylint: disable=R0801
 

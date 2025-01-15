@@ -1,8 +1,0 @@
-services:
-  cloud_chatops:
-    image: harbor.stfc.ac.uk/stfc-cloud/cloud-chatops:5.0.2
-    environment:
-      HOST_IP: ${HOST_IP:?error}
-    volumes:
-      - /etc/chatops/secrets/:/usr/src/app/cloud_chatops/secrets/
-      - /etc/chatops/config/:/usr/src/app/cloud_chatops/config/

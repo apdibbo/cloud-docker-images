@@ -78,3 +78,33 @@ class User:
             github_name=info["github_name"],
             slack_id=info["slack_id"],
         )
+
+
+def sort_by(
+    obj_list: List[PR | User], prop: str, reverse: bool = False
+) -> List[PR | User]:
+    """
+    Sort the list of Dataclasses by property.
+    :param obj_list: List of Dataclasses
+    :param prop: Property to sort by
+    :param reverse: To sort in reverse
+    :return: List of Dataclasses
+    """
+    try:
+        return sorted(obj_list, key=lambda obj: getattr(obj, prop), reverse=reverse)
+    except AttributeError as exc:
+        raise ValueError(f"Unable to sort list by {prop}") from exc
+
+
+def filter_by(obj_list: List[PR | User], prop: str, value: str) -> List[PR | User]:
+    """
+    Filter the list of Dataclass objects by property.
+    :param obj_list: List of Dataclass objects
+    :param prop: Property to filter by
+    :param value: Value to evaluate filter.
+    :return: Filtered list of Dataclasses.
+    """
+    try:
+        return list(filter(lambda obj: getattr(obj, prop) == value, obj_list))
+    except AttributeError as exc:
+        raise ValueError(f"Unable to filter list by {prop}") from exc

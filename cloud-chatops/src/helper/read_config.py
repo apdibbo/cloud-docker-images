@@ -4,8 +4,8 @@ from typing import Dict, Union, List
 import sys
 import os
 import yaml
-from errors import ErrorInConfig
-from data import User
+from helper.errors import ErrorInConfig
+from helper.data import User
 
 
 def get_path() -> str:
@@ -45,7 +45,7 @@ def get_token(secret: str) -> str:
         return secrets_data[secret]
 
 
-def get_config(section: str) -> Union[List | Dict]:
+def get_config(section: str) -> Union[List, Dict, str]:
     """
     This function returns the specified section from the config file.
     :param section: The section of the config to retrieve.
@@ -58,7 +58,11 @@ def get_config(section: str) -> Union[List | Dict]:
             case "users":
                 return [User.from_config(user) for user in config_data[section]]
             case "repos":
-                return config_data[section]
+                data = config_data[section]
+                repos = []
+                for owner in data:
+                    repos += [f"{owner}/{repo}" for repo in data[owner]]
+                return repos
             case "channel":
                 return config_data[section]
             case _:

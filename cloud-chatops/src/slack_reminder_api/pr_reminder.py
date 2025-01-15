@@ -2,8 +2,8 @@
 
 from typing import List
 from slack_sdk import WebClient
-from data import PR, Message
-from read_data import get_config
+from helper.data import PR, Message
+from helper.read_config import get_config
 
 
 class PRReminder:

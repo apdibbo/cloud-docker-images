@@ -1,11 +1,16 @@
-"""This module runs local integration tests of the code."""
+"""
+This module uses Socket Mode to enable the code to run locally and not need to be open to the internet.
+"""
 
 import logging
-import asyncio
 import argparse
 from argparse import Namespace
-from errors import NoTestCase
-from read_data import validate_required_files, get_config
+
+from slack_bolt import App
+from slack_bolt.adapter.socket_mode import SocketModeHandler
+
+from helper.errors import NoTestCase
+from helper.read_config import validate_required_files, get_config, get_token
 from events import run_global_reminder, run_personal_reminder
 
 logging.basicConfig(level=logging.DEBUG)
@@ -38,7 +43,7 @@ def call_method(event: str, args: Namespace) -> None:
         case "global":
             run_global_reminder(args.channel)
         case "personal":
-            users = [user.slack_id for user in get_config("users")]
+            users = get_config("users")
             run_personal_reminder(users)
         case _:
             raise NoTestCase(f"There is not test case for {event}")
@@ -46,19 +51,17 @@ def call_method(event: str, args: Namespace) -> None:
 
 def main(args: Namespace) -> None:
     """
-    This function checks the config files, runs the tests then starts the app.
-    :param args: CLI Arguments
+    This function checks the config files, runs the tests, then starts the app.
+    :param args: Command line interface arguments
     """
-    # Disabling this as we can't import in the top level as it breaks unit testing
-    # pylint: disable=C0415
-    from main import main as async_main
-
-    validate_required_files()
     logging.info("Running tests")
     run_methods(args)
     logging.info("Completed tests.")
-    logging.info("Running Async App")
-    asyncio.run(async_main())
+    logging.info("Running Slack App")
+
+    app = App(token=get_token("SLACK_BOT_TOKEN"))
+    handler = SocketModeHandler(app, get_token("SLACK_APP_TOKEN"))
+    handler.start()
 
 
 def parse_args() -> Namespace:
@@ -74,5 +77,7 @@ def parse_args() -> Namespace:
     return parser.parse_args()
 
 
-if __name__ == "__main__":
-    main(parse_args())
+if __name__ == "__main__": # pragma: no cover
+    arguments = parse_args()
+    validate_required_files()
+    main(arguments)

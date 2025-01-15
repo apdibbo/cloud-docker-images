@@ -2,10 +2,9 @@
 
 from unittest.mock import patch, NonCallableMock
 import pytest
-
-from data import User
-from dev import run_methods, call_method, parse_args
-from errors import NoTestCase
+from helper.data import User
+from helper.errors import NoTestCase
+from dev import run_methods, call_method, parse_args, main
 
 
 MOCK_USER = User(
@@ -42,7 +41,7 @@ def test_call_test(mock_global, mock_personal, mock_get_config):
     call_method("global", mock_args)
     mock_global.assert_called_once_with(mock_args.channel)
     call_method("personal", mock_args)
-    mock_personal.assert_called_once_with(["mock_slack"])
+    mock_personal.assert_called_once_with([MOCK_USER])
     with pytest.raises(NoTestCase):
         call_method("unexpected", mock_args)
 
@@ -67,3 +66,20 @@ def test_run_methods_invalid():
     mock_args.channel = ""
     with pytest.raises(ValueError):
         run_methods(mock_args)
+
+
+@patch("dev.get_token")
+@patch("dev.SocketModeHandler")
+@patch("dev.App")
+@patch("dev.run_methods")
+def test_main(mock_run_methods, mock_app, mock_socket, mock_get_token):
+    """Test the main method calls the correct functions."""
+    mock_args = NonCallableMock()
+    mock_get_token.side_effect = ["mock_bot_token", "mock_app_token"]
+    main(mock_args)
+    mock_run_methods.assert_called_once_with(mock_args)
+    mock_app.assert_called_once_with(token="mock_bot_token")
+    mock_get_token.assert_any_call("SLACK_BOT_TOKEN")
+    mock_get_token.assert_any_call("SLACK_APP_TOKEN")
+    mock_socket.assert_called_once_with(mock_app.return_value, "mock_app_token")
+    mock_socket.return_value.start.assert_called_once_with()

@@ -4,8 +4,8 @@ from dataclasses import replace
 from datetime import datetime
 from unittest.mock import patch, NonCallableMock, MagicMock
 import pytest
-from features.pr_reminder import PRReminder
-from data import PR, Message, User
+from slack_reminder_api.pr_reminder import PRReminder
+from helper.data import PR, Message, User
 
 
 @pytest.fixture(name="instance", scope="function")
@@ -57,7 +57,7 @@ def test_get_reactions_none(instance):
     assert not res
 
 
-@patch("features.pr_reminder.get_config")
+@patch("slack_reminder_api.pr_reminder.get_config")
 def test_make_string(mock_get_config, instance):
     """Test the right string is returned."""
     mock_get_config.return_value = [MOCK_USER]
@@ -70,7 +70,7 @@ def test_make_string(mock_get_config, instance):
     assert res == expected
 
 
-@patch("features.pr_reminder.get_config")
+@patch("slack_reminder_api.pr_reminder.get_config")
 def test_make_string_fails(mock_get_config, instance):
     """Test the github name is used if slack name can't be found."""
     mock_get_config.return_value = [MOCK_USER]
@@ -82,8 +82,8 @@ def test_make_string_fails(mock_get_config, instance):
     assert res == expected
 
 
-@patch("features.pr_reminder.PRReminder.make_string")
-@patch("features.pr_reminder.PRReminder.get_reactions")
+@patch("slack_reminder_api.pr_reminder.PRReminder.make_string")
+@patch("slack_reminder_api.pr_reminder.PRReminder.get_reactions")
 def test_construct_messages(mock_get_reactions, mock_make_string, instance):
     """Test the correct messages are returned"""
     mock_make_string.return_value = "mock_string"
@@ -108,7 +108,7 @@ def test_add_reactions_fails(instance):
         instance.add_reactions("mock_timestamp", "mock_channel", ["mock_reaction"])
 
 
-@patch("features.pr_reminder.PRReminder.add_reactions")
+@patch("slack_reminder_api.pr_reminder.PRReminder.add_reactions")
 def test_send_message(mock_add_reactions, instance):
     """Test the chat post message is called with the correct parameters"""
     mock_response = MagicMock()
@@ -130,7 +130,7 @@ def test_send_message(mock_add_reactions, instance):
     assert res == mock_response
 
 
-@patch("features.pr_reminder.PRReminder.add_reactions")
+@patch("slack_reminder_api.pr_reminder.PRReminder.add_reactions")
 def test_send_message_fails(_, instance):
     """Test an exception is raised if the message fails to send."""
     mock_response = {"ok": False, "error": "mock_error"}
@@ -141,8 +141,8 @@ def test_send_message_fails(_, instance):
         )
 
 
-@patch("features.pr_reminder.PRReminder.construct_messages")
-@patch("features.pr_reminder.PRReminder.send_message")
+@patch("slack_reminder_api.pr_reminder.PRReminder.construct_messages")
+@patch("slack_reminder_api.pr_reminder.PRReminder.send_message")
 def test_run(mock_send_message, mock_construct_messages, instance):
     """Test run calls all methods."""
     mock_construct_messages.return_value = [
@@ -162,8 +162,8 @@ def test_run(mock_send_message, mock_construct_messages, instance):
     )
 
 
-@patch("features.pr_reminder.PRReminder.construct_messages")
-@patch("features.pr_reminder.PRReminder.send_message")
+@patch("slack_reminder_api.pr_reminder.PRReminder.construct_messages")
+@patch("slack_reminder_api.pr_reminder.PRReminder.send_message")
 def test_run_none_found(mock_send_message, mock_construct_messages, instance):
     """Test run calls send message for no messages"""
     mock_construct_messages.return_value = [
@@ -176,8 +176,8 @@ def test_run_none_found(mock_send_message, mock_construct_messages, instance):
     )
 
 
-@patch("features.pr_reminder.PRReminder.construct_messages")
-@patch("features.pr_reminder.PRReminder.send_message")
+@patch("slack_reminder_api.pr_reminder.PRReminder.construct_messages")
+@patch("slack_reminder_api.pr_reminder.PRReminder.send_message")
 def test_run_none_found_no_message(
     mock_send_message, mock_construct_messages, instance
 ):

@@ -99,7 +99,7 @@ jobs:
         uses: stfc/check-version-action@main
         with:
           app_version_path: "cloud-chatops/version.txt"
-          docker_compose_path: "cloud-chatops/docker-compose.yaml"
+          docker_compose_path: "cloud-chatops/deployments/docker-compose.yaml"
           labels: ${{ toJSON(github.event.pull_request.labels.*.name) }}
 
       - name: Log App Success

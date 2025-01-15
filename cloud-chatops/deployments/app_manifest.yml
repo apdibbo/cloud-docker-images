@@ -1,6 +1,6 @@
 display_information:
   name: Cloud ChatOps
-  description: Cloud teams ChatOps intergration
+  description: Cloud teams ChatOps integration
   background_color: "#004d8d"
 features:
   bot_user:
@@ -8,11 +8,9 @@ features:
     always_online: true
   slash_commands:
     - command: /prs
+      url: https://<your-domain-here>/slack/events
       description: Get all open PRs
       usage_hint: "[all: every pr] [mine: your prs]"
-      should_escape: false
-    - command: /find-host
-      description: Returns the IP of the host
       should_escape: false
 oauth_config:
   scopes:
@@ -24,12 +22,6 @@ oauth_config:
       - reactions:write
       - users.profile:read
 settings:
-  event_subscriptions:
-    bot_events:
-      - message.channels
-      - message.groups
-  interactivity:
-    is_enabled: true
   org_deploy_enabled: false
-  socket_mode_enabled: true
+  socket_mode_enabled: false
   token_rotation_enabled: false

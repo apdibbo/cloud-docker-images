@@ -1,62 +1,77 @@
 """
-This module starts the Slack Bolt app Asynchronously running the event loop.
-Using Socket mode, the app listens for events from the Slack API client.
+This module uses endpoints to run the Slack app.
+It listens for requests from Slack and executes different functions.
 """
 
 import logging
-import asyncio
-from slack_bolt.app.async_app import AsyncApp
-from slack_bolt.adapter.socket_mode.async_handler import AsyncSocketModeHandler
-from read_data import get_token, validate_required_files
-from events import slash_prs, schedule_jobs, slash_find_host
+
+from slack_bolt import App
+from slack_bolt.adapter.flask import SlackRequestHandler
+from flask import Flask, request
+
+
+from helper.read_config import get_token, validate_required_files
+from events import slash_prs, slash_find_host, weekly_reminder
 
 
 logging.basicConfig(level=logging.DEBUG)
-app = AsyncApp(token=get_token("SLACK_BOT_TOKEN"))
+
+validate_required_files()
+
+slack_app = App(
+    token=get_token("SLACK_BOT_TOKEN"), signing_secret=get_token("SLACK_SIGNING_SECRET")
+)
 
 
-@app.event("message")
-async def handle_message_events(body, logger):
+@slack_app.event("message")
+def handle_message_events(body, logger):
     """This method handles message events and logs them."""
     logger.info(body)
 
 
-@app.command("/prs")
-async def prs(ack, respond, command):
+@slack_app.command("/prs")
+def prs(ack, respond, command):
     """
     This command sends the user a message containing all open pull requests.
     :param command: The return object from Slack API.
     :param ack: Slacks acknowledgement command.
     :param respond: Slacks respond command to respond to the command in chat.
     """
-    await slash_prs(ack, respond, command)
+    slash_prs(ack, respond, command)
 
 
-@app.command("/find-host")
-async def find_host(ack, respond):
+@slack_app.command("/find-host")
+def find_host(ack, respond):
     """
     This command responds to the user with the IP of the host that received the message.
     :param ack: Slacks acknowledgement command.
     :param respond: Slacks respond command to respond to the command in chat.
     """
-    await slash_find_host(ack, respond)
+    slash_find_host(ack, respond)
 
 
-async def entrypoint() -> None:
-    """
-    This function is the main entry point for the app. First, it validates the required files.
-    Then it starts the async loop and runs the scheduler.
-    """
-    validate_required_files()
-    asyncio.ensure_future(schedule_jobs())
-    handler = AsyncSocketModeHandler(app, get_token("SLACK_APP_TOKEN"))
-    await handler.start_async()
+flask_app = Flask(__name__)
+slack_handler = SlackRequestHandler(slack_app)
 
 
-def main():
-    """This method is the entry point if using this package."""
-    asyncio.run(entrypoint())
+@flask_app.route("/slack/events", methods=["POST"])
+def slack_events() -> slack_handler.handle:
+    """This function makes requests to the Slack App from the Flask request."""
+    return slack_handler.handle(request)
+
+
+@flask_app.route("/slack/schedule", methods=["POST"])
+def slack_schedule() -> str:
+    """This function checks the request is authorised then passes it to the weekly reminder calls."""
+    schedule_type = request.json.get("type")
+    token = request.headers.get("Authorization")
+    if token != get_token("SCHEDULED_REMINDER_TOKEN"):
+        return "403"
+    weekly_reminder(schedule_type)
+    return "200"
 
 
 if __name__ == "__main__":
-    asyncio.run(entrypoint())
+    from waitress import serve
+
+    serve(flask_app, host="0.0.0.0", port=3000)
