@@ -1,0 +1,93 @@
+name: Rabbit Consumer Schedule
+
+# Incrementing the patch version on a schedule to pull latest containers dependencies.
+
+on:
+  schedule: 
+      - cron: "12 10 * * TUE" # Every Tuesday at 10.12am
+
+jobs:
+  test_and_lint:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+      - name: Install dependencies
+        run: |
+          sudo apt-get update --fix-missing
+          python -m pip install --upgrade pip
+          # Required for requests-kerberos
+          sudo DEBIAN_FRONTEND=noninteractive apt-get -yq install libkrb5-dev
+          pip install -r openstack-rabbit-consumer/requirements.txt
+          pip install -r openstack-rabbit-consumer/requirements-test.txt
+      
+      - name: Run tests
+        # Using Python3 to launch the module sets up the Python path for us
+        run: cd openstack-rabbit-consumer && python3 -m coverage run -m pytest .
+      
+      - name: Analyse with pylint
+        run: |
+          cd openstack-rabbit-consumer && pylint $(git ls-files '*.py')
+
+      - name: Prepare coverage
+        run: |
+          cd openstack-rabbit-consumer && python -m coverage xml
+
+  push_release_image_harbor:
+    runs-on: ubuntu-latest
+    needs: test_and_lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Harbor
+        uses: docker/login-action@v3
+        with:
+          registry: harbor.stfc.ac.uk
+          username: ${{ secrets.HARBOR_USERNAME }}
+          password: ${{ secrets.HARBOR_TOKEN }}
+
+        #increments ONLY the patch version using the version_incrememnt.sh script and commits the version.txt file to master
+      - name: Increment Version
+        run: bash ${{ github.workspace }}/.github/workflows/bin/version_increment.sh
+
+      - name: Get release tag for later
+        id: release_tag
+        run: echo "version=$(cat openstack-rabbit-consumer/version.txt)" >> $GITHUB_OUTPUT
+
+      - name: Build and push on version change
+        uses: docker/build-push-action@v6
+        if: steps.release_updated.outputs.version == 'true'
+        with:
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          push: true
+          context: "{{defaultContext}}:openstack-rabbit-consumer"
+          tags: "harbor.stfc.ac.uk/stfc-cloud/openstack-rabbit-consumer-schedule:v${{ steps.release_tag.outputs.version }}"
+
+      - name: Inform of tagged name
+        if: steps.release_updated.outputs.version == 'true'
+        run: echo "Image published to harbor.stfc.ac.uk/stfc-cloud/openstack-rabbit-consumer-schedule:v${{ steps.release_tag.outputs.version }}"
+      
+      - name: Commit Changes
+        uses: EndBug/add-and-commit@v9
+        with:
+          add: ${{ github.workspace }}/openstack-rabbit-consumer/version.txt
+          default_author: github_actions
+          committer_name: GitHub Actions
+          committer_email: actions@github.com
+          new_branch: rabbitConsumerDependUpdate
+
+      - name: create pull request
+        run: gh pr create -B master -H rabbitConsumerDependUpdate --title 'Merge rabbitConsumerDependUpdate into master' --body 'Updating the dependencies for Rabbit Consumer Image. Created by Github action'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
